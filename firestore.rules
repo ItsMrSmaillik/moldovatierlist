@@ -1,0 +1,91 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: players
+// Document ID: playerId (string)
+// Fields:
+//   - name: string (required)
+//   - uuid: string (required)
+//   - skinUrl: string (optional)
+//   - rankings: map (required) - categoryId -> tierId
+//   - updatedAt: timestamp (optional)
+//
+// Collection: categories
+// Document ID: categoryId (string)
+// Fields:
+//   - id: string (required)
+//   - name: string (required)
+//   - icon: string (optional)
+//   - description: string (optional)
+//   - order: number (required)
+//
+// Collection: tiers
+// Document ID: tierId (string)
+// Fields:
+//   - id: string (required)
+//   - name: string (required)
+//   - color: string (required)
+//   - order: number (required)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email.lower() == "matvey.zingaliuk@gmail.com");
+    }
+
+    function isValidPlayer(data) {
+      return data.keys().hasAll(['name', 'uuid', 'rankings']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 32 &&
+             data.uuid is string && data.uuid.size() > 0 &&
+             data.rankings is map;
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['id', 'name', 'order']) &&
+             data.id is string && data.name is string && data.order is number;
+    }
+
+    function isValidTier(data) {
+      return data.keys().hasAll(['id', 'name', 'color', 'order']) &&
+             data.id is string && data.name is string && data.color is string && data.order is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isAdmin();
+    }
+
+    match /players/{playerId} {
+      allow read: if true; // Publicly readable tier list
+      allow write: if isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /tiers/{tierId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

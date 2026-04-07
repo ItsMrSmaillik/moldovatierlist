@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "player": {
+      "title": "Player",
+      "description": "A Minecraft player with rankings across different PvP categories.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Minecraft username" },
+        "uuid": { "type": "string", "description": "Minecraft UUID" },
+        "skinUrl": { "type": "string", "description": "URL to the player's skin avatar" },
+        "pose": { "type": "string", "description": "Preferred display pose for the player skin" },
+        "rankings": {
+          "type": "object",
+          "description": "Map of category IDs to tier IDs (e.g., { 'cpvp': 'HT1' })"
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "uuid", "rankings"]
+    },
+    "category": {
+      "title": "PvP Category",
+      "description": "A specific PvP mode (e.g., Crystal PvP, UHC).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "icon": { "type": "string", "description": "Lucide icon name" },
+        "description": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["id", "name", "order"]
+    },
+    "tier": {
+      "title": "Tier",
+      "description": "A ranking tier (e.g., HT1, LT1).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "color": { "type": "string", "description": "Tailwind color class" },
+        "order": { "type": "number" }
+      },
+      "required": ["id", "name", "color", "order"]
+    }
+  },
+  "firestore": {
+    "/players/{playerId}": {
+      "schema": "player",
+      "description": "Collection of ranked players"
+    },
+    "/categories/{categoryId}": {
+      "schema": "category",
+      "description": "Available PvP categories"
+    },
+    "/tiers/{tierId}": {
+      "schema": "tier",
+      "description": "Available ranking tiers"
+    }
+  }
+}
