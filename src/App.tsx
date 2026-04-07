@@ -482,7 +482,8 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       if (u && u.email) {
-        const isAdminUser = u.email.toLowerCase() === "matvey.zingaliuk@gmail.com";
+        const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || "matvey.zingaliuk@gmail.com";
+        const isAdminUser = u.email.toLowerCase() === adminEmail.toLowerCase();
         setIsAdmin(isAdminUser);
       } else {
         setIsAdmin(false);
