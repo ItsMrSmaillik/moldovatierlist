@@ -14,6 +14,7 @@ import {
   LogOut, 
   LogIn,
   ChevronRight,
+  ChevronLeft,
   LayoutGrid,
   Menu,
   X,
@@ -182,6 +183,22 @@ const TRANSLATIONS = {
       errorAdd: "Ошибка при добавлении",
       errorDelete: "Ошибка при удалении",
       seedSuccess: "Данные успешно обновлены!"
+    },
+    footer: {
+      copyright: "© 2026 Moldova PvP. Все права защищены.",
+      legal: "Правовая информация",
+      privacy: "Конфиденциальность",
+      terms: "Условия использования"
+    },
+    legalPage: {
+      title: "Правовая информация и Конфиденциальность",
+      intro: "Этот сайт является независимым рейтингом игроков Minecraft PvP в Молдове.",
+      disclaimer: "Отказ от ответственности",
+      disclaimerText: "Мы не связаны с Mojang AB или Microsoft. Все торговые марки принадлежат их владельцам. Данные игроков собираются из открытых источников и предоставляются исключительно в информационных целях.",
+      privacyTitle: "Политика конфиденциальности",
+      privacyText: "Мы не собираем личные данные обычных посетителей. Для администраторов мы используем Google Auth только для проверки прав доступа. Мы не передаем ваши данные третьим лицам.",
+      cookiesTitle: "Cookies",
+      cookiesText: "Мы используем локальное хранилище браузера только для сохранения ваших настроек (например, выбранного языка)."
     }
   },
   en: {
@@ -228,6 +245,22 @@ const TRANSLATIONS = {
       errorAdd: "Error adding player",
       errorDelete: "Error deleting player",
       seedSuccess: "Data successfully updated!"
+    },
+    footer: {
+      copyright: "© 2026 Moldova PvP. All rights reserved.",
+      legal: "Legal Information",
+      privacy: "Privacy Policy",
+      terms: "Terms of Service"
+    },
+    legalPage: {
+      title: "Legal Information & Privacy",
+      intro: "This site is an independent ranking system for Minecraft PvP players in Moldova.",
+      disclaimer: "Disclaimer",
+      disclaimerText: "We are not affiliated with Mojang AB or Microsoft. All trademarks belong to their respective owners. Player data is collected from public sources and provided for informational purposes only.",
+      privacyTitle: "Privacy Policy",
+      privacyText: "We do not collect personal data from regular visitors. For administrators, we use Google Auth only to verify access rights. We do not share your data with third parties.",
+      cookiesTitle: "Cookies",
+      cookiesText: "We use local browser storage only to save your preferences (e.g., selected language)."
     }
   },
   ro: {
@@ -274,6 +307,22 @@ const TRANSLATIONS = {
       errorAdd: "Eroare la adăugare",
       errorDelete: "Eroare la ștergere",
       seedSuccess: "Datele au fost actualizate cu succes!"
+    },
+    footer: {
+      copyright: "© 2026 Moldova PvP. Toate drepturile rezervate.",
+      legal: "Informații Legale",
+      privacy: "Confidențialitate",
+      terms: "Termeni și Condiții"
+    },
+    legalPage: {
+      title: "Informații Legale și Confidențialitate",
+      intro: "Acest site este un sistem independent de clasament pentru jucătorii de Minecraft PvP din Moldova.",
+      disclaimer: "Declinarea responsabilității",
+      disclaimerText: "Nu suntem afiliați cu Mojang AB sau Microsoft. Toate mărcile comerciale aparțin proprietarilor respectivi. Datele jucătorilor sunt colectate din surse publice și sunt furnizate doar în scop informativ.",
+      privacyTitle: "Politica de Confidențialitate",
+      privacyText: "Nu colectăm date personale de la vizitatorii obișnuiți. Pentru administratori, folosim Google Auth doar pentru a verifica drepturile de acces. Nu partajăm datele dvs. cu terți.",
+      cookiesTitle: "Cookie-uri",
+      cookiesText: "Folosim stocarea locală a browserului doar pentru a salva preferințele dvs. (de exemplu, limba selectată)."
     }
   }
 };
@@ -348,6 +397,80 @@ const MinecraftSkin = ({ name, pose, width = 300, height = 400, className = "" }
   }, [name, pose, width, height]);
 
   return <canvas ref={canvasRef} className={cn("cursor-grab active:cursor-grabbing", className)} />;
+};
+
+const Footer = ({ t }: { t: any }) => {
+  return (
+    <footer className="mt-20 py-12 px-4 sm:px-10 border-t border-white/5 bg-black/20 backdrop-blur-md">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+        <div className="flex items-center gap-4">
+          <img src={LOGO_URL} className="w-10 h-10 object-contain opacity-50 grayscale" alt="Logo" referrerPolicy="no-referrer" />
+          <p className="text-zinc-500 text-xs font-black uppercase tracking-widest">{t.footer.copyright}</p>
+        </div>
+        <div className="flex flex-wrap justify-center gap-6 sm:gap-10">
+          <Link to="/legal" className="text-zinc-500 hover:text-red-500 text-[10px] font-black uppercase tracking-widest transition-colors">{t.footer.legal}</Link>
+          <Link to="/legal" className="text-zinc-500 hover:text-red-500 text-[10px] font-black uppercase tracking-widest transition-colors">{t.footer.privacy}</Link>
+          <Link to="/legal" className="text-zinc-500 hover:text-red-500 text-[10px] font-black uppercase tracking-widest transition-colors">{t.footer.terms}</Link>
+        </div>
+      </div>
+    </footer>
+  );
+};
+
+const Legal = ({ t }: { t: any }) => {
+  return (
+    <div className="p-4 sm:p-10 max-w-4xl mx-auto">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-[2.5rem] p-8 sm:p-16 shadow-2xl"
+      >
+        <h1 className="text-3xl sm:text-5xl font-black tracking-tighter text-white mb-8 sm:mb-12 leading-none">
+          {t.legalPage.title}
+        </h1>
+        
+        <div className="space-y-12 text-zinc-400 font-medium leading-relaxed">
+          <section>
+            <p className="text-lg text-zinc-300">{t.legalPage.intro}</p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3">
+              <div className="w-2 h-8 bg-red-600 rounded-full" />
+              {t.legalPage.disclaimer}
+            </h2>
+            <p>{t.legalPage.disclaimerText}</p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3">
+              <div className="w-2 h-8 bg-red-600 rounded-full" />
+              {t.legalPage.privacyTitle}
+            </h2>
+            <p>{t.legalPage.privacyText}</p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3">
+              <div className="w-2 h-8 bg-red-600 rounded-full" />
+              {t.legalPage.cookiesTitle}
+            </h2>
+            <p>{t.legalPage.cookiesText}</p>
+          </section>
+        </div>
+
+        <div className="mt-16 pt-8 border-t border-white/5">
+          <Link 
+            to="/" 
+            className="inline-flex items-center gap-3 px-8 py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-white font-black uppercase tracking-widest text-xs transition-all border border-white/5"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Назад на главную
+          </Link>
+        </div>
+      </motion.div>
+    </div>
+  );
 };
 
 const PlayerModal = ({ player, tiers, categories, onClose, t, lang }: { 
@@ -482,7 +605,7 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       if (u && u.email) {
-        const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || "matvey.zingaliuk@gmail.com";
+        const adminEmail = (import.meta as any).env?.VITE_ADMIN_EMAIL || "matvey.zingaliuk@gmail.com";
         const isAdminUser = u.email.toLowerCase() === adminEmail.toLowerCase();
         setIsAdmin(isAdminUser);
       } else {
@@ -665,7 +788,9 @@ export default function App() {
                 </div>
               )
             } />
+            <Route path="/legal" element={<Legal t={t} />} />
           </Routes>
+          <Footer t={t} />
         </main>
       </div>
     </BrowserRouter>
