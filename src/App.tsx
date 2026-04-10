@@ -599,9 +599,9 @@ const PlayerModal = ({ player, tiers, categories, onClose, t, lang, isAdmin, upd
                   name={player.name} 
                   width={400} 
                   height={500}
-                  zoom={0.9}
+                  zoom={0.35}
                   offsetY={-12}
-                  className="relative z-10 scale-110 translate-y-4"
+                  className="relative z-10 translate-y-12"
                 />
               </div>
               
@@ -1312,7 +1312,7 @@ const RecentActivity = ({ activities, t }: { activities: Activity[], t: any }) =
   );
 };
 
-const CompareModal = ({ players, onClose, t }: { players: Player[], onClose: () => void, t: any }) => {
+const CompareModal = ({ players, onClose, t, categories, tiers }: { players: Player[], onClose: () => void, t: any, categories: Category[], tiers: Tier[] }) => {
   if (players.length < 2) return null;
   const [p1, p2] = players;
 
@@ -1330,22 +1330,22 @@ const CompareModal = ({ players, onClose, t }: { players: Player[], onClose: () 
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
-        className="relative w-full max-w-5xl bg-zinc-900 border border-white/10 rounded-[2.5rem] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)]"
+        className="relative w-full max-w-5xl bg-zinc-900 border border-white/10 rounded-[2.5rem] overflow-y-auto max-h-[90vh] shadow-[0_0_100px_rgba(0,0,0,0.8)] custom-scrollbar"
       >
-        <div className="p-8 sm:p-12 flex flex-col gap-8">
+        <div className="p-6 sm:p-12 flex flex-col gap-8">
           <div className="flex items-center justify-between">
-            <h2 className="text-3xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
-              <Sword className="w-8 h-8 text-red-500" />
+            <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
+              <Sword className="w-6 h-6 sm:w-8 h-8 text-red-500" />
               Player Comparison
             </h2>
             <button onClick={onClose} className="p-3 hover:bg-white/5 rounded-2xl transition-all"><X className="w-6 h-6" /></button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-12 relative">
+          <div className="flex overflow-x-auto gap-8 pb-4 sm:grid sm:grid-cols-2 sm:gap-12 relative custom-scrollbar snap-x snap-mandatory">
             <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/5 hidden sm:block" />
             
             {[p1, p2].map((p, idx) => (
-              <div key={p.id} className="space-y-8">
+              <div key={p.id} className="space-y-8 min-w-[280px] sm:min-w-0 snap-center flex-shrink-0 sm:flex-shrink">
                 <div className="flex flex-col items-center text-center gap-4">
                   <div className="w-32 h-32 rounded-3xl bg-zinc-800 border border-white/5 overflow-hidden relative group">
                     <img 
@@ -1370,6 +1370,28 @@ const CompareModal = ({ players, onClose, t }: { players: Player[], onClose: () 
                       className="h-full bg-red-600" 
                       style={{ width: `${Math.min(100, ((p as any).totalPoints / 1000) * 100)}%` }} 
                     />
+                  </div>
+                </div>
+
+                {/* Tier Comparison Section */}
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] px-2">Tier Breakdown</h4>
+                  <div className="grid gap-2">
+                    {categories.map(cat => {
+                      const tierId = p.rankings[cat.id];
+                      const tier = tiers.find(t => t.id === tierId);
+                      return (
+                        <div key={cat.id} className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/5">
+                          <span className="text-[10px] font-bold text-zinc-400 uppercase">{cat.name}</span>
+                          <span className={cn(
+                            "text-xs font-black px-2 py-0.5 rounded-md border",
+                            tier?.color || "border-zinc-800 text-zinc-600"
+                          )}>
+                            {tierId || "N/A"}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -1402,7 +1424,7 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
     return (
       <div className="p-4 sm:p-10 max-w-7xl mx-auto space-y-12">
         <AnimatePresence>
-          {showCompare && <CompareModal players={compareList} onClose={() => setShowCompare(false)} t={t} />}
+          {showCompare && <CompareModal players={compareList} onClose={() => setShowCompare(false)} t={t} categories={categories} tiers={tiers} />}
         </AnimatePresence>
 
         {/* Hero Section for Global View */}
@@ -1469,15 +1491,16 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
               )}
             </div>
             
-            <div className="bg-zinc-900/40 backdrop-blur-sm border border-white/5 rounded-[2rem] overflow-hidden shadow-2xl">
-              <table className="w-full text-left border-collapse">
+            {/* Global Top Table - Scrollable on mobile */}
+            <div className="bg-zinc-900/40 backdrop-blur-sm border border-white/5 rounded-[2rem] overflow-x-auto shadow-2xl custom-scrollbar">
+              <table className="w-full text-left border-collapse min-w-[500px] sm:min-w-0">
                 <thead>
                   <tr className="bg-white/5">
-                    <th className="px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]"># Rank</th>
-                    <th className="px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Player</th>
-                    <th className="px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] hidden sm:table-cell">Title</th>
-                    <th className="px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] text-right">Points</th>
-                    <th className="px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] text-center">Compare</th>
+                    <th className="px-4 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]"># Rank</th>
+                    <th className="px-4 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Player</th>
+                    <th className="px-4 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] hidden sm:table-cell">Title</th>
+                    <th className="px-4 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] text-right">Points</th>
+                    <th className="px-4 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] text-center">Compare</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -1492,9 +1515,9 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                           onPlayerClick(player);
                         }}
                       >
-                        <td className="px-6 py-5">
+                        <td className="px-4 sm:px-6 py-5">
                           <div className={cn(
-                            "w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black",
+                            "w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-black",
                             index === 0 ? "bg-amber-400 text-black shadow-[0_0_15px_rgba(251,191,36,0.5)]" :
                             index === 1 ? "bg-zinc-300 text-black" :
                             index === 2 ? "bg-amber-700 text-white" : "text-zinc-500"
@@ -1502,10 +1525,10 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                             {index + 1}
                           </div>
                         </td>
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-4">
+                        <td className="px-4 sm:px-6 py-5">
+                          <div className="flex items-center gap-3 sm:gap-4">
                             <div 
-                              className="flex items-end justify-center overflow-hidden relative"
+                              className="flex items-end justify-center overflow-hidden relative flex-shrink-0"
                               style={{ width: `${skinConfig.global.width}px`, height: `${skinConfig.global.height}px` }}
                             >
                               <MinecraftSkin 
@@ -1521,8 +1544,8 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                                 }}
                               />
                             </div>
-                            <div>
-                              <div className="text-sm font-black text-white group-hover:text-red-500 transition-colors">{player.name}</div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-black text-white group-hover:text-red-500 transition-colors truncate">{player.name}</div>
                               <div className="flex gap-1 mt-1">
                                 {player.badges?.slice(0, 3).map(badgeId => {
                                   const badge = BADGES.find(b => b.id === badgeId);
@@ -1536,19 +1559,19 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-5 hidden sm:table-cell">
+                        <td className="px-4 sm:px-6 py-5 hidden sm:table-cell">
                           <span className={cn("text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border", (player as any).title.color)}>
                             {(player as any).title.name}
                           </span>
                         </td>
-                        <td className="px-6 py-5 text-right">
-                          <span className="text-lg font-black text-white">{(player as any).totalPoints}</span>
+                        <td className="px-4 sm:px-6 py-5 text-right">
+                          <span className="text-base sm:text-lg font-black text-white">{(player as any).totalPoints}</span>
                         </td>
-                        <td className="px-6 py-5 text-center">
+                        <td className="px-4 sm:px-6 py-5 text-center">
                           <button 
                             onClick={() => toggleCompare(player)}
                             className={cn(
-                              "compare-btn p-2 rounded-xl border transition-all",
+                              "compare-btn p-1.5 sm:p-2 rounded-xl border transition-all",
                               isComparing ? "bg-red-600 border-red-600 text-white" : "bg-white/5 border-white/5 text-zinc-500 hover:text-white hover:bg-white/10"
                             )}
                           >
