@@ -50,8 +50,14 @@ service cloud.firestore {
     function isValidPlayer(data) {
       return data.keys().hasAll(['name', 'uuid', 'rankings']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 32 &&
-             data.uuid is string && data.uuid.size() > 0 &&
-             data.rankings is map;
+             data.uuid is string && data.uuid.size() > 0 && data.uuid.size() < 64 &&
+             data.rankings is map && data.rankings.size() < 20;
+    }
+
+    function isValidActivity(data) {
+      return data.keys().hasAll(['playerId', 'playerName', 'type', 'timestamp']) &&
+             data.playerName is string && data.playerName.size() < 32 &&
+             data.details is string && data.details.size() < 256;
     }
 
     function isValidCategory(data) {
@@ -73,9 +79,24 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    function isValidVoteUpdate() {
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      return affected.hasOnly(['votes']) && 
+             request.resource.data.votes.keys().hasOnly(['up', 'down']) &&
+             (request.resource.data.votes.get('up', 0) >= resource.data.votes.get('up', 0)) &&
+             (request.resource.data.votes.get('down', 0) >= resource.data.votes.get('down', 0));
+    }
+
     match /players/{playerId} {
-      allow read: if true; // Publicly readable tier list
-      allow write: if isAdmin();
+      allow read: if true;
+      allow update: if (isAdmin() && isValidPlayer(request.resource.data)) || isValidVoteUpdate();
+      allow create: if isAdmin() && isValidPlayer(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /activity/{activityId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidActivity(request.resource.data);
     }
 
     match /categories/{categoryId} {
@@ -84,6 +105,11 @@ service cloud.firestore {
     }
 
     match /tiers/{tierId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();
     }

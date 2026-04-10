@@ -13,9 +13,47 @@
           "type": "object",
           "description": "Map of category IDs to tier IDs (e.g., { 'cpvp': 'HT1' })"
         },
+        "badges": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of achievement badge IDs"
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string", "format": "date-time" },
+              "points": { "type": "number" }
+            }
+          },
+          "description": "Historical point snapshots for progress charts"
+        },
+        "votes": {
+          "type": "object",
+          "properties": {
+            "up": { "type": "number" },
+            "down": { "type": "number" }
+          },
+          "description": "Community votes for rank change"
+        },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "uuid", "rankings"]
+    },
+    "activity": {
+      "title": "Recent Activity",
+      "description": "Log of recent rank changes and player additions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "playerId": { "type": "string" },
+        "playerName": { "type": "string" },
+        "type": { "type": "string", "enum": ["rank_up", "rank_down", "new_player", "badge_earned"] },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["playerId", "playerName", "type", "timestamp"]
     },
     "category": {
       "title": "PvP Category",
@@ -55,6 +93,10 @@
     "/tiers/{tierId}": {
       "schema": "tier",
       "description": "Available ranking tiers"
+    },
+    "/activity/{activityId}": {
+      "schema": "activity",
+      "description": "Log of recent site events"
     }
   }
 }
