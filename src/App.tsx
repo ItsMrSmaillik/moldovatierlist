@@ -567,7 +567,7 @@ const Legal = ({ t }: { t: any }) => {
   );
 };
 
-const PlayerModal = ({ player, tiers, categories, onClose, t, lang, isAdmin, updateBadges, votePlayer }: any) => {
+const PlayerModal = ({ player, tiers, categories, onClose, t, lang, isAdmin, updateBadges, votePlayer, voteStatus }: any) => {
   if (!player) return null;
 
   const totalPoints = Object.entries(player.rankings).reduce((sum, [catId, tierId]) => {
@@ -619,21 +619,49 @@ const PlayerModal = ({ player, tiers, categories, onClose, t, lang, isAdmin, upd
                 />
               </div>
               
-              <div className="flex items-center justify-center gap-4">
-                <button 
-                  onClick={() => votePlayer(player.id, 'up')}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-green-600/10 hover:bg-green-600/20 border border-green-600/20 rounded-2xl text-green-500 transition-all"
-                >
-                  <ThumbsUp className="w-4 h-4" />
-                  <span className="text-xs font-black">{player.votes?.up || 0}</span>
-                </button>
-                <button 
-                  onClick={() => votePlayer(player.id, 'down')}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-red-600/10 hover:bg-red-600/20 border border-red-600/20 rounded-2xl text-red-500 transition-all"
-                >
-                  <ThumbsDown className="w-4 h-4" />
-                  <span className="text-xs font-black">{player.votes?.down || 0}</span>
-                </button>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-center gap-4">
+                  <button 
+                    onClick={() => votePlayer(player.id, 'up')}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-green-600/10 hover:bg-green-600/20 border border-green-600/20 rounded-2xl text-green-500 transition-all"
+                  >
+                    <ThumbsUp className="w-4 h-4" />
+                    <motion.span 
+                      key={player.votes?.up}
+                      initial={{ scale: 1.5, color: '#22c55e' }}
+                      animate={{ scale: 1, color: '#22c55e' }}
+                      className="text-xs font-black"
+                    >
+                      {player.votes?.up || 0}
+                    </motion.span>
+                  </button>
+                  <button 
+                    onClick={() => votePlayer(player.id, 'down')}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-red-600/10 hover:bg-red-600/20 border border-red-600/20 rounded-2xl text-red-500 transition-all"
+                  >
+                    <ThumbsDown className="w-4 h-4" />
+                    <motion.span 
+                      key={player.votes?.down}
+                      initial={{ scale: 1.5, color: '#ef4444' }}
+                      animate={{ scale: 1, color: '#ef4444' }}
+                      className="text-xs font-black"
+                    >
+                      {player.votes?.down || 0}
+                    </motion.span>
+                  </button>
+                </div>
+                <AnimatePresence>
+                  {voteStatus && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="text-[10px] font-black text-red-500 text-center uppercase tracking-widest"
+                    >
+                      {voteStatus}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 
@@ -770,6 +798,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [compareList, setCompareList] = useState<Player[]>([]);
+  const [voteStatus, setVoteStatus] = useState<string | null>(null);
   const [skinConfig, setSkinConfig] = useState({
     global: {
       zoom: 0.9,
@@ -968,6 +997,33 @@ export default function App() {
   };
 
   const votePlayer = async (playerId: string, type: 'up' | 'down') => {
+    const lastVoteKey = `last_vote_${playerId}`;
+    const lastVote = localStorage.getItem(lastVoteKey);
+    const now = Date.now();
+
+    if (lastVote && now - parseInt(lastVote) < 24 * 60 * 60 * 1000) {
+      setVoteStatus("Вы уже голосовали за этого игрока сегодня!");
+      setTimeout(() => setVoteStatus(null), 3000);
+      return;
+    }
+
+    // Optimistic update
+    setPlayers(prev => prev.map(p => {
+      if (p.id === playerId) {
+        const currentVotes = p.votes || { up: 0, down: 0 };
+        return {
+          ...p,
+          votes: {
+            ...currentVotes,
+            [type]: (currentVotes[type] || 0) + 1
+          }
+        };
+      }
+      return p;
+    }));
+
+    localStorage.setItem(lastVoteKey, now.toString());
+
     try {
       await setDoc(doc(db, 'players', playerId), {
         votes: {
@@ -975,7 +1031,39 @@ export default function App() {
         }
       }, { merge: true });
     } catch (error) {
+      // Rollback on error
+      setPlayers(prev => prev.map(p => {
+        if (p.id === playerId) {
+          const currentVotes = p.votes || { up: 0, down: 0 };
+          return {
+            ...p,
+            votes: {
+              ...currentVotes,
+              [type]: Math.max(0, (currentVotes[type] || 0) - 1)
+            }
+          };
+        }
+        return p;
+      }));
       handleFirestoreError(error, OperationType.WRITE, `players/${playerId}/votes`);
+    }
+  };
+
+  const resetAllVotes = async () => {
+    if (!isAdmin) return;
+    try {
+      const batch = writeBatch(db);
+      players.forEach(player => {
+        batch.set(doc(db, 'players', player.id), {
+          votes: { up: 0, down: 0 }
+        }, { merge: true });
+      });
+      await batch.commit();
+      setPlayers(prev => prev.map(p => ({ ...p, votes: { up: 0, down: 0 } })));
+      return true;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'players/all/votes');
+      return false;
     }
   };
 
@@ -1001,7 +1089,7 @@ export default function App() {
         <AnimatePresence>
           {selectedPlayer && (
             <PlayerModal 
-              player={selectedPlayer} 
+              player={players.find(p => p.id === selectedPlayer.id) || selectedPlayer} 
               tiers={tiers} 
               categories={categories} 
               onClose={() => setSelectedPlayer(null)} 
@@ -1010,6 +1098,7 @@ export default function App() {
               isAdmin={isAdmin}
               updateBadges={updateBadges}
               votePlayer={votePlayer}
+              voteStatus={voteStatus}
             />
           )}
         </AnimatePresence>
@@ -1058,7 +1147,7 @@ export default function App() {
               />
             } />
             <Route path="/admin-secret-access" element={
-              isAdmin ? <Admin tiers={tiers} categories={categories} players={players} seedData={seedData} updateRank={updateRank} updatePose={updatePose} t={t} skinConfig={skinConfig} setSkinConfig={setSkinConfig} saveSkinConfig={saveSkinConfig} /> : (
+              isAdmin ? <Admin tiers={tiers} categories={categories} players={players} seedData={seedData} updateRank={updateRank} updatePose={updatePose} t={t} skinConfig={skinConfig} setSkinConfig={setSkinConfig} saveSkinConfig={saveSkinConfig} resetAllVotes={resetAllVotes} /> : (
                 <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
                   <img src={LOGO_URL} className="w-24 h-24 mb-8" alt="Logo" />
                   <h2 className="text-2xl font-bold mb-6">Admin Access</h2>
@@ -1436,13 +1525,13 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
     const leaderboard = [...filteredPlayers].sort((a, b) => b.totalPoints - a.totalPoints);
     
     return (
-      <div className="p-4 sm:p-10 max-w-7xl mx-auto space-y-12">
+      <div className="p-3 sm:p-10 max-w-7xl mx-auto space-y-8 sm:space-y-12">
         <AnimatePresence>
           {showCompare && <CompareModal players={compareList} onClose={() => setShowCompare(false)} t={t} categories={categories} tiers={tiers} />}
         </AnimatePresence>
 
         {/* Hero Section for Global View */}
-        <div className="relative overflow-hidden rounded-[2rem] sm:rounded-[3rem] bg-gradient-to-br from-red-600/20 via-zinc-900/40 to-black border border-white/5 p-6 sm:p-12">
+        <div className="relative overflow-hidden rounded-[2rem] sm:rounded-[3rem] bg-gradient-to-br from-red-600/20 via-zinc-900/40 to-black border border-white/5 p-5 sm:p-12">
           <div className="absolute top-0 left-0 w-full h-1 flex">
             <div className="h-full w-1/3 bg-[#0046ae]" />
             <div className="h-full w-1/3 bg-[#ffd100]" />
@@ -1451,7 +1540,7 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
           
           <div className="absolute top-0 right-0 w-1/2 h-full bg-[radial-gradient(circle_at_top_right,_rgba(220,38,38,0.15),_transparent_70%)]" />
           <div className="relative z-10 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em] mb-4 sm:mb-6">
               <div className="flex gap-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#0046ae]" />
                 <div className="w-1.5 h-1.5 rounded-full bg-[#ffd100]" />
@@ -1459,28 +1548,28 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
               </div>
               Moldova PvP Official
             </div>
-            <h1 className="text-4xl sm:text-6xl font-black tracking-tighter text-white mb-4 sm:mb-6 leading-[0.9]">
+            <h1 className="text-3xl sm:text-6xl font-black tracking-tighter text-white mb-4 sm:mb-6 leading-[0.9]">
               ULTIMATE <br />
               <span className="bg-gradient-to-r from-red-500 to-red-800 bg-clip-text text-transparent">LEADERBOARD</span>
             </h1>
-            <p className="text-zinc-400 text-sm sm:text-lg font-medium leading-relaxed mb-6 sm:mb-8">
+            <p className="text-zinc-400 text-xs sm:text-lg font-medium leading-relaxed mb-6 sm:mb-8">
               The most accurate and up-to-date ranking of the best PvP players in Moldova. 
               Compete, climb the ranks, and become a legend.
             </p>
             
-            <div className="flex flex-wrap gap-4">
-              <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md border border-white/5 rounded-2xl px-6 py-4">
-                <Users className="w-6 h-6 text-red-500" />
+            <div className="flex flex-wrap gap-3 sm:gap-4">
+              <div className="flex items-center gap-2 sm:gap-3 bg-black/40 backdrop-blur-md border border-white/5 rounded-2xl px-4 sm:px-6 py-3 sm:py-4">
+                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-red-500" />
                 <div>
-                  <div className="text-xl font-black text-white">{players.length}</div>
-                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Players</div>
+                  <div className="text-lg sm:text-xl font-black text-white">{players.length}</div>
+                  <div className="text-[9px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest">Players</div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-black/40 backdrop-blur-md border border-white/5 rounded-2xl px-6 py-4">
-                <LayoutGrid className="w-6 h-6 text-red-500" />
+              <div className="flex items-center gap-2 sm:gap-3 bg-black/40 backdrop-blur-md border border-white/5 rounded-2xl px-4 sm:px-6 py-3 sm:py-4">
+                <LayoutGrid className="w-5 h-5 sm:w-6 sm:h-6 text-red-500" />
                 <div>
-                  <div className="text-xl font-black text-white">{categories.length}</div>
-                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Categories</div>
+                  <div className="text-lg sm:text-xl font-black text-white">{categories.length}</div>
+                  <div className="text-[9px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest">Categories</div>
                 </div>
               </div>
             </div>
@@ -1510,11 +1599,11 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
               <table className="w-full text-left border-collapse min-w-[500px] sm:min-w-0">
                 <thead>
                   <tr className="bg-white/5">
-                    <th className="px-4 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]"># Rank</th>
-                    <th className="px-4 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Player</th>
-                    <th className="px-4 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] hidden sm:table-cell">Title</th>
-                    <th className="px-4 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] text-right">Points</th>
-                    <th className="px-4 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] text-center">Compare</th>
+                    <th className="px-3 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]"># Rank</th>
+                    <th className="px-3 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Player</th>
+                    <th className="px-3 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] hidden sm:table-cell">Title</th>
+                    <th className="px-3 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] text-right">Points</th>
+                    <th className="px-3 sm:px-6 py-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] text-center">Compare</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -1529,7 +1618,7 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                           onPlayerClick(player);
                         }}
                       >
-                        <td className="px-4 sm:px-6 py-5">
+                        <td className="px-3 sm:px-6 py-5">
                           <div className={cn(
                             "w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-black",
                             index === 0 ? "bg-amber-400 text-black shadow-[0_0_15px_rgba(251,191,36,0.5)]" :
@@ -1539,8 +1628,8 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                             {index + 1}
                           </div>
                         </td>
-                        <td className="px-4 sm:px-6 py-5">
-                          <div className="flex items-center gap-3 sm:gap-4">
+                        <td className="px-3 sm:px-6 py-5">
+                          <div className="flex items-center gap-2 sm:gap-4">
                             <div 
                               className="flex items-end justify-center overflow-hidden relative flex-shrink-0"
                               style={{ width: `${skinConfig.global.width}px`, height: `${skinConfig.global.height}px` }}
@@ -1559,13 +1648,13 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                               />
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm font-black text-white group-hover:text-red-500 transition-colors truncate">{player.name}</div>
+                              <div className="text-xs sm:text-sm font-black text-white group-hover:text-red-500 transition-colors truncate">{player.name}</div>
                               <div className="flex gap-1 mt-1">
                                 {player.badges?.slice(0, 3).map(badgeId => {
                                   const badge = BADGES.find(b => b.id === badgeId);
                                   return badge ? (
-                                    <div key={badgeId} className={cn("p-1 rounded-md border", badge.color)}>
-                                      {badge.icon}
+                                    <div key={badgeId} className={cn("p-0.5 sm:p-1 rounded-md border", badge.color)}>
+                                      {React.cloneElement(badge.icon as React.ReactElement, { className: "w-2.5 h-2.5 sm:w-3 sm:h-3" })}
                                     </div>
                                   ) : null;
                                 })}
@@ -1573,15 +1662,15 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 sm:px-6 py-5 hidden sm:table-cell">
+                        <td className="px-3 sm:px-6 py-5 hidden sm:table-cell">
                           <span className={cn("text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border", (player as any).title.color)}>
                             {(player as any).title.name}
                           </span>
                         </td>
-                        <td className="px-4 sm:px-6 py-5 text-right">
-                          <span className="text-base sm:text-lg font-black text-white">{(player as any).totalPoints}</span>
+                        <td className="px-3 sm:px-6 py-5 text-right">
+                          <span className="text-sm sm:text-lg font-black text-white">{(player as any).totalPoints}</span>
                         </td>
-                        <td className="px-4 sm:px-6 py-5 text-center">
+                        <td className="px-3 sm:px-6 py-5 text-center">
                           <button 
                             onClick={() => toggleCompare(player)}
                             className={cn(
@@ -1589,7 +1678,7 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                               isComparing ? "bg-red-600 border-red-600 text-white" : "bg-white/5 border-white/5 text-zinc-500 hover:text-white hover:bg-white/10"
                             )}
                           >
-                            <Sword className="w-4 h-4" />
+                            <Sword className="w-3.5 h-3.5 sm:w-4 h-4" />
                           </button>
                         </td>
                       </tr>
@@ -1731,7 +1820,7 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
   );
 };
 
-const Admin = ({ tiers, categories, players, seedData, updateRank, updatePose, t, skinConfig, setSkinConfig, saveSkinConfig }: any) => {
+const Admin = ({ tiers, categories, players, seedData, updateRank, updatePose, t, skinConfig, setSkinConfig, saveSkinConfig, resetAllVotes }: any) => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -1868,17 +1957,29 @@ const Admin = ({ tiers, categories, players, seedData, updateRank, updatePose, t
                 </div>
                 {t.addNewPlayer}
               </h3>
-              <button 
-                onClick={async () => {
-                  const success = await seedData();
-                  if (success) setStatus({ type: 'success', message: t.status.seedSuccess });
-                }}
-                className="w-full sm:w-auto px-6 py-3 bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white rounded-2xl text-xs font-black flex items-center justify-center gap-3 transition-all border border-white/5 uppercase tracking-widest"
-                title={t.updateSeed}
-              >
-                <Database className="w-4 h-4 text-red-500" />
-                {t.updateSeed}
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <button 
+                  onClick={async () => {
+                    const success = await seedData();
+                    if (success) setStatus({ type: 'success', message: t.status.seedSuccess });
+                  }}
+                  className="px-6 py-3 bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white rounded-2xl text-xs font-black flex items-center justify-center gap-3 transition-all border border-white/5 uppercase tracking-widest"
+                  title={t.updateSeed}
+                >
+                  <Database className="w-4 h-4 text-red-500" />
+                  {t.updateSeed}
+                </button>
+                <button 
+                  onClick={async () => {
+                    const success = await resetAllVotes();
+                    if (success) setStatus({ type: 'success', message: 'Все голоса сброшены!' });
+                  }}
+                  className="px-6 py-3 bg-red-600/10 hover:bg-red-600/20 text-red-500 rounded-2xl text-xs font-black flex items-center justify-center gap-3 transition-all border border-red-500/20 uppercase tracking-widest"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Сбросить голоса
+                </button>
+              </div>
             </div>
             <form onSubmit={handleAddPlayer} className="flex flex-col sm:flex-row gap-4">
               <input 
