@@ -244,6 +244,8 @@ const TRANSLATIONS = {
     legalPage: {
       title: "Правовая информация и Конфиденциальность",
       intro: "Этот сайт является независимым рейтингом игроков Minecraft PvP в Молдове.",
+      copyrightTitle: "Интеллектуальная собственность",
+      copyrightText: "Все уникальные идеи, концепции дизайна и структура данного проекта являются интеллектуальной собственностью автора. Копирование, воспроизведение или использование этих идей без явного разрешения владельца запрещено.",
       disclaimer: "Отказ от ответственности",
       disclaimerText: "Мы не связаны с Mojang AB или Microsoft. Все торговые марки принадлежат их владельцам. Данные игроков собираются из открытых источников и предоставляются исключительно в информационных целях.",
       privacyTitle: "Политика конфиденциальности",
@@ -306,6 +308,8 @@ const TRANSLATIONS = {
     legalPage: {
       title: "Legal Information & Privacy",
       intro: "This site is an independent ranking system for Minecraft PvP players in Moldova.",
+      copyrightTitle: "Intellectual Property",
+      copyrightText: "All unique ideas, design concepts, and the structure of this project are the intellectual property of the author. Copying, reproducing, or using these ideas without explicit permission from the owner is prohibited.",
       disclaimer: "Disclaimer",
       disclaimerText: "We are not affiliated with Mojang AB or Microsoft. All trademarks belong to their respective owners. Player data is collected from public sources and provided for informational purposes only.",
       privacyTitle: "Privacy Policy",
@@ -368,6 +372,8 @@ const TRANSLATIONS = {
     legalPage: {
       title: "Informații Legale și Confidențialitate",
       intro: "Acest site este un sistem independent de clasament pentru jucătorii de Minecraft PvP din Moldova.",
+      copyrightTitle: "Proprietate Intelectuală",
+      copyrightText: "Toate ideile unice, conceptele de design și structura acestui proiect sunt proprietatea intelectuală a autorului. Copierea, reproducerea sau utilizarea acestor idei fără permisiunea explicită a proprietarului este interzisă.",
       disclaimer: "Declinarea responsabilității",
       disclaimerText: "Nu suntem afiliați cu Mojang AB sau Microsoft. Toate mărcile comerciale aparțin proprietarilor respectivi. Datele jucătorilor sunt colectate din surse publice și sunt furnizate doar în scop informativ.",
       privacyTitle: "Politica de Confidențialitate",
@@ -517,6 +523,14 @@ const Legal = ({ t }: { t: any }) => {
           <section className="space-y-4">
             <h2 className="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3">
               <div className="w-2 h-8 bg-red-600 rounded-full" />
+              {t.legalPage.copyrightTitle}
+            </h2>
+            <p>{t.legalPage.copyrightText}</p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3">
+              <div className="w-2 h-8 bg-red-600 rounded-full" />
               {t.legalPage.disclaimer}
             </h2>
             <p>{t.legalPage.disclaimerText}</p>
@@ -589,10 +603,10 @@ const PlayerModal = ({ player, tiers, categories, onClose, t, lang, isAdmin, upd
           <div className="h-full w-1/3 bg-[#cc092f]" />
         </div>
 
-        <div className="p-6 sm:p-10">
-          <div className="flex flex-col sm:flex-row gap-8 sm:gap-12 items-center sm:items-start">
+        <div className="p-4 sm:p-10">
+          <div className="flex flex-col lg:flex-row gap-8 sm:gap-12 items-center lg:items-start">
             {/* Left: Skin and Basic Info */}
-            <div className="w-full sm:w-1/3 space-y-6">
+            <div className="w-full lg:w-1/3 space-y-6">
               <div className="aspect-[3/4] bg-zinc-800 rounded-[2rem] border border-white/5 overflow-hidden relative group flex items-center justify-center">
                 <div className="absolute inset-0 bg-gradient-to-b from-red-600/10 to-transparent" />
                 <MinecraftSkin 
@@ -625,9 +639,9 @@ const PlayerModal = ({ player, tiers, categories, onClose, t, lang, isAdmin, upd
 
             {/* Right: Stats and Charts */}
             <div className="flex-1 space-y-8 w-full">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-4xl font-black text-white tracking-tighter mb-2">{player.name}</h2>
+                  <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tighter mb-2">{player.name}</h2>
                   <div className="flex flex-wrap gap-2">
                     {player.badges?.map((badgeId: string) => {
                       const badge = BADGES.find(b => b.id === badgeId);
@@ -640,7 +654,7 @@ const PlayerModal = ({ player, tiers, categories, onClose, t, lang, isAdmin, upd
                     })}
                   </div>
                 </div>
-                <button onClick={onClose} className="p-3 hover:bg-white/5 rounded-2xl transition-all"><X className="w-6 h-6" /></button>
+                <button onClick={onClose} className="p-3 hover:bg-white/5 rounded-2xl transition-all self-end sm:self-auto"><X className="w-6 h-6" /></button>
               </div>
 
               {/* Progress Chart */}
@@ -1604,8 +1618,11 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
           const htPlayers = playersByTier[`HT${num}`] || [];
           const ltPlayers = playersByTier[`LT${num}`] || [];
           
-          // Combine and sort by total points
-          const allPlayersInTier = [...htPlayers, ...ltPlayers].sort((a, b) => b.totalPoints - a.totalPoints);
+          // Sort HT and LT separately by total points, then combine (HT first)
+          const allPlayersInTier = [
+            ...htPlayers.sort((a: any, b: any) => b.totalPoints - a.totalPoints),
+            ...ltPlayers.sort((a: any, b: any) => b.totalPoints - a.totalPoints)
+          ];
 
           return (
             <div key={num} className="min-w-[300px] sm:min-w-[380px] flex-shrink-0 space-y-6">
