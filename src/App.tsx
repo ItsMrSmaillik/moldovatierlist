@@ -53,7 +53,12 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer 
+  ResponsiveContainer,
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis
 } from 'recharts';
 import { 
   collection, 
@@ -171,6 +176,7 @@ const BADGES: Badge[] = [
   { id: 'veteran', name: 'Veteran', icon: <History className="w-3 h-3" />, color: 'text-zinc-400 border-zinc-400/30 bg-zinc-400/10', description: 'Member of the top for over a year' },
   { id: 'rising_star', name: 'Rising Star', icon: <TrendingUp className="w-3 h-3" />, color: 'text-green-400 border-green-400/30 bg-green-400/10', description: 'Rapidly climbing the ranks' },
   { id: 'community_fav', name: 'Community Favorite', icon: <Heart className="w-3 h-3" />, color: 'text-pink-400 border-pink-400/30 bg-pink-400/10', description: 'Highly voted by the community' },
+  { id: 'owner', name: 'Owner', icon: <Crown className="w-3 h-3" />, color: 'text-amber-400 border-amber-400/50 bg-amber-400/20 shadow-[0_0_15px_rgba(251,191,36,0.4)]', description: 'The creator and owner of Moldova PvP' },
 ];
 
 const DEFAULT_TIERS: Tier[] = [
@@ -438,22 +444,36 @@ const MinecraftSkin = ({
 
     const viewer = new SkinViewer({
       canvas: canvasRef.current,
-      width: width * 2, // Double for quality
+      width: width * 2,
       height: height * 2,
       alpha: true,
     } as any);
 
+    viewerRef.current = viewer;
+
+    return () => {
+      viewer.dispose();
+      viewerRef.current = null;
+    };
+  }, [width, height]);
+
+  React.useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
     const skinUrl = name ? `https://mc-heads.net/skin/${name}` : 'https://mc-heads.net/skin/Steve';
-    
     viewer.loadSkin(skinUrl)
       .catch(() => viewer.loadSkin('https://mc-heads.net/skin/Steve'));
+  }, [name]);
+
+  React.useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
 
     viewer.autoRotate = animated;
     viewer.autoRotateSpeed = 0.5;
     viewer.fov = 70;
     viewer.zoom = zoom;
-
-    // Set initial rotation and position to focus on head/chest
     viewer.playerObject.rotation.y = rotationY;
     viewer.playerObject.position.y = offsetY;
     viewer.playerObject.position.z = 0;
@@ -461,20 +481,13 @@ const MinecraftSkin = ({
     if (animated) {
       viewer.animation = new WalkingAnimation();
     } else {
-      // Static walking pose
-      viewer.autoRotate = false;
+      viewer.animation = null;
       viewer.playerObject.skin.leftLeg.rotation.x = 0.5;
       viewer.playerObject.skin.rightLeg.rotation.x = -0.5;
       viewer.playerObject.skin.leftArm.rotation.x = -0.5;
       viewer.playerObject.skin.rightArm.rotation.x = 0.5;
     }
-
-    viewerRef.current = viewer;
-
-    return () => {
-      viewer.dispose();
-    };
-  }, [name, animated, width, height, zoom, offsetY, rotationY]);
+  }, [animated, zoom, offsetY, rotationY]);
 
   return (
     <canvas 
@@ -570,11 +583,22 @@ const Legal = ({ t }: { t: any }) => {
 const PlayerModal = ({ player, tiers, categories, onClose, t, lang, isAdmin, updateBadges, votePlayer, voteStatus }: any) => {
   if (!player) return null;
 
+  const isOwner = player.badges?.includes('owner');
+
   const totalPoints = Object.entries(player.rankings).reduce((sum, [catId, tierId]) => {
-    // Fallback to DEFAULT_TIERS if DB tier is missing points
     const tier = tiers.find((t: any) => t.id === tierId) || DEFAULT_TIERS.find((t: any) => t.id === tierId);
     return sum + (tier?.points || 0);
   }, 0);
+
+  const radarData = categories.slice(0, 6).map((cat: any) => {
+    const tierId = player.rankings[cat.id];
+    const tier = tiers.find((t: any) => t.id === tierId) || DEFAULT_TIERS.find((t: any) => t.id === tierId);
+    return {
+      subject: cat.name,
+      value: tier?.points || 10,
+      fullMark: 100
+    };
+  });
 
   const chartData = player.history || [
     { date: 'Initial', points: 0 },
@@ -608,7 +632,40 @@ const PlayerModal = ({ player, tiers, categories, onClose, t, lang, isAdmin, upd
             {/* Left: Skin and Basic Info */}
             <div className="w-full lg:w-1/3 space-y-6">
               <div className="aspect-[3/4] bg-zinc-800 rounded-[2rem] border border-white/5 overflow-hidden relative group flex items-center justify-center">
-                <div className="absolute inset-0 bg-gradient-to-b from-red-600/10 to-transparent" />
+                <div className={cn(
+                  "absolute inset-0 transition-all duration-1000",
+                  isOwner ? "bg-gradient-to-b from-amber-400/20 via-amber-400/5 to-transparent" : "bg-gradient-to-b from-red-600/10 to-transparent"
+                )} />
+                
+                {/* Particles for Owner */}
+                {isOwner && (
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    {[...Array(20)].map((_, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ 
+                          x: Math.random() * 300 - 150, 
+                          y: 400, 
+                          opacity: 0, 
+                          scale: Math.random() * 0.5 + 0.5 
+                        }}
+                        animate={{ 
+                          y: -100, 
+                          opacity: [0, 1, 0.8, 0],
+                          x: (Math.random() * 300 - 150) + (Math.sin(i) * 50)
+                        }}
+                        transition={{ 
+                          duration: Math.random() * 2 + 2, 
+                          repeat: Infinity, 
+                          delay: Math.random() * 5,
+                          ease: "linear"
+                        }}
+                        className="absolute bottom-0 left-1/2 w-1.5 h-1.5 bg-amber-400 rounded-full blur-[1px] shadow-[0_0_8px_#fbbf24]"
+                      />
+                    ))}
+                  </div>
+                )}
+
                 <MinecraftSkin 
                   name={player.name} 
                   width={400} 
@@ -717,23 +774,54 @@ const PlayerModal = ({ player, tiers, categories, onClose, t, lang, isAdmin, upd
                 </div>
               </div>
 
-              {/* Ranks Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {categories.map((cat: any) => {
-                  const tierId = player.rankings[cat.id];
-                  const tier = tiers.find((t: any) => t.id === tierId);
-                  return (
-                    <div key={cat.id} className="bg-zinc-800/50 border border-white/5 rounded-2xl p-4 group hover:border-red-500/20 transition-all">
-                      <p className="text-[9px] text-zinc-500 font-black uppercase tracking-widest mb-2">{cat.name}</p>
-                      <div className={cn(
-                        "inline-flex px-3 py-1 rounded-lg text-[10px] font-black border",
-                        tier ? tier.color : "text-zinc-700 border-zinc-800"
-                      )}>
-                        {tier ? tier.name : "--"}
-                      </div>
-                    </div>
-                  );
-                })}
+              {/* Ranks and Radar Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                    <Target className="w-4 h-4 text-red-500" />
+                    Tier Distribution
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {categories.map((cat: any) => {
+                      const tierId = player.rankings[cat.id];
+                      const tier = tiers.find((t: any) => t.id === tierId);
+                      return (
+                        <div key={cat.id} className="bg-zinc-800/50 border border-white/5 rounded-2xl p-4 group hover:border-red-500/20 transition-all">
+                          <p className="text-[9px] text-zinc-500 font-black uppercase tracking-widest mb-2">{cat.name}</p>
+                          <div className={cn(
+                            "inline-flex px-3 py-1 rounded-lg text-[10px] font-black border",
+                            tier ? tier.color : "text-zinc-700 border-zinc-800"
+                          )}>
+                            {tier ? tier.name : "--"}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="bg-black/40 rounded-3xl p-6 border border-white/5 overflow-hidden">
+                  <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2 mb-4">
+                    <Dna className="w-4 h-4 text-amber-500" />
+                    Ability Spectrum
+                  </h3>
+                  <div className="h-[250px] w-full flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+                        <PolarGrid stroke="#ffffff10" />
+                        <PolarAngleAxis dataKey="subject" tick={{ fill: '#71717a', fontSize: 9, fontWeight: '900' }} />
+                        <PolarRadiusAxis angle={30} domain={[0, 100]} hide />
+                        <Radar
+                          name="Ability"
+                          dataKey="value"
+                          stroke={isOwner ? "#fbbf24" : "#ef4444"}
+                          fill={isOwner ? "#fbbf24" : "#ef4444"}
+                          fillOpacity={0.3}
+                        />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
               </div>
 
               {isAdmin && (
@@ -816,6 +904,14 @@ export default function App() {
       rotationY: 0.458407346410207,
       scale: 1.2,
       translateY: 0
+    },
+    mvp: {
+      zoom: 0.45,
+      offsetY: -10,
+      width: 200,
+      height: 200,
+      scale: 1.2,
+      translateY: 30
     }
   });
 
@@ -926,6 +1022,29 @@ export default function App() {
     }
   };
 
+  const notifyDiscord = async (embed: any) => {
+    const webhookUrl = (import.meta as any).env?.VITE_DISCORD_WEBHOOK_URL || "https://discord.com/api/webhooks/1495840157688139866/CRwyP5bvYQyOFNy1-TzS1nUl-6T_6RCybiEv7te85malF1rYXqrgSycCFpA6k0BmGAMn";
+    if (!webhookUrl) return;
+
+    try {
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          embeds: [{
+            ...embed,
+            color: 14427686, // #dc2626
+            timestamp: new Date().toISOString(),
+            footer: { text: "Moldova PvP Tracker" },
+            thumbnail: { url: "https://www.image2url.com/r2/default/images/1776355660052-7fa46551-71ad-4f14-8d8b-b1b2d8f102bb.png" }
+          }]
+        })
+      });
+    } catch (e) {
+      console.error("Discord Notification Failed:", e);
+    }
+  };
+
   const updateRank = async (playerId: string, categoryId: string, tierId: string) => {
     const player = players.find((p: any) => p.id === playerId);
     if (!player) return;
@@ -967,6 +1086,17 @@ export default function App() {
           details: `${categoryId.toUpperCase()}: ${oldTierId || '--'} -> ${tierId}`,
           timestamp: serverTimestamp()
         });
+
+        // Discord Notify
+        notifyDiscord({
+          title: type === 'rank_up' ? "Rank Up! 🚀" : "Rank Update 📋",
+          description: `**${player.name}** rank in **${categoryId.toUpperCase()}** has been updated.`,
+          fields: [
+            { name: "Old Tier", value: oldTierId || "None", inline: true },
+            { name: "New Tier", value: tierId, inline: true },
+            { name: "Total Points", value: `${newTotalPoints}`, inline: true }
+          ]
+        });
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `players/${playerId}`);
@@ -980,6 +1110,7 @@ export default function App() {
       // Log activity for new badges
       const player = players.find(p => p.id === playerId);
       const newBadges = badgeIds.filter(id => !player?.badges?.includes(id));
+      const removedBadges = player?.badges?.filter(id => !badgeIds.includes(id)) || [];
       
       for (const badgeId of newBadges) {
         const badge = BADGES.find(b => b.id === badgeId);
@@ -989,6 +1120,15 @@ export default function App() {
           type: 'badge_earned',
           details: `Earned badge: ${badge?.name}`,
           timestamp: serverTimestamp()
+        });
+
+        // Discord Notify
+        notifyDiscord({
+          title: "New Badge Assigned! ✨",
+          description: `Player **${player?.name}** just earned the **${badge?.name}** badge!`,
+          fields: [
+            { name: "Description", value: badge?.description || "No description" }
+          ]
         });
       }
     } catch (error) {
@@ -1576,6 +1716,79 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
           </div>
         </div>
 
+        {/* Community MVP / Player of the Week Section */}
+        {players.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {(() => {
+              const mvp = [...players].sort((a, b) => (b.votes?.up || 0) - (a.votes?.up || 0))[0];
+              if (!mvp) return null;
+              return (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  onClick={() => onPlayerClick(mvp)}
+                  className="group relative overflow-hidden rounded-[2rem] bg-zinc-900/40 border border-white/5 p-8 flex items-center gap-8 cursor-pointer hover:bg-zinc-900/60 transition-all border-amber-500/20"
+                >
+                  <div className="absolute top-0 right-0 p-4">
+                    <Sparkles className="w-24 h-24 text-amber-500/10 absolute -top-8 -right-8 rotate-12" />
+                  </div>
+                  <div className="relative z-10 flex-shrink-0 w-24 h-24 sm:w-32 sm:h-32 bg-zinc-800 rounded-3xl border border-white/5 overflow-hidden flex items-end justify-center">
+                    <MinecraftSkin 
+                      name={mvp.name} 
+                      width={skinConfig.mvp?.width ?? 200} 
+                      height={skinConfig.mvp?.height ?? 200}
+                      animated={true}
+                      zoom={skinConfig.mvp?.zoom ?? 0.45}
+                      offsetY={skinConfig.mvp?.offsetY ?? -10}
+                      className="pointer-events-none"
+                      style={{ 
+                        transform: `scale(${skinConfig.mvp?.scale ?? 1.2}) translateY(${skinConfig.mvp?.translateY ?? 30}px)` 
+                      }}
+                    />
+                  </div>
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-2 text-amber-400 text-[10px] font-black uppercase tracking-widest mb-2">
+                      <Flame className="w-4 h-4" />
+                      Community MVP
+                    </div>
+                    <h3 className="text-2xl sm:text-3xl font-black text-white mb-2 group-hover:text-amber-400 transition-colors uppercase italic tracking-tighter">
+                      {mvp.name}
+                    </h3>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1.5 text-green-500 text-xs font-black">
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                        {mvp.votes?.up || 0}
+                      </div>
+                      <div className="w-px h-3 bg-white/10" />
+                      <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Most Loved this week</div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })()}
+
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="rounded-[2rem] bg-gradient-to-br from-red-600 to-red-900/50 p-8 flex flex-col justify-center relative overflow-hidden"
+            >
+              <Zap className="absolute -top-12 -right-12 w-48 h-48 text-white/10 rotate-12" />
+              <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter leading-tight relative z-10">
+                WANT TO BE <br />IN THE TOP?
+              </h3>
+              <p className="text-white/70 text-xs font-medium max-w-[200px] mb-4 relative z-10">
+                Compete in our official events and climb the tiers to get noticed.
+              </p>
+              <div className="flex relative z-10">
+                 <div className="px-5 py-2 bg-white text-red-600 text-[10px] font-black uppercase rounded-full shadow-lg">Join Community</div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             <div className="flex items-center justify-between">
@@ -1609,16 +1822,23 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                 <tbody className="divide-y divide-white/5">
                   {leaderboard.map((player, index) => {
                     const isComparing = compareList.find(p => p.id === player.id);
+                    const isOwner = player.badges?.includes('owner');
                     return (
                       <tr 
                         key={player.id} 
-                        className="group hover:bg-white/5 transition-all duration-300 cursor-pointer"
+                        className={cn(
+                          "group transition-all duration-300 cursor-pointer relative",
+                          isOwner ? "bg-amber-400/5 hover:bg-amber-400/10" : "hover:bg-white/5"
+                        )}
                         onClick={(e) => {
                           if ((e.target as HTMLElement).closest('.compare-btn')) return;
                           onPlayerClick(player);
                         }}
                       >
-                        <td className="px-3 sm:px-6 py-5">
+                        <td className="px-3 sm:px-6 py-5 relative">
+                          {isOwner && (
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 via-yellow-600 to-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.5)]" />
+                          )}
                           <div className={cn(
                             "w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-black",
                             index === 0 ? "bg-amber-400 text-black shadow-[0_0_15px_rgba(251,191,36,0.5)]" :
@@ -1648,7 +1868,13 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                               />
                             </div>
                             <div className="min-w-0">
-                              <div className="text-xs sm:text-sm font-black text-white group-hover:text-red-500 transition-colors truncate">{player.name}</div>
+                              <div className={cn(
+                                "text-xs sm:text-sm font-black transition-colors truncate flex items-center gap-2",
+                                isOwner ? "text-amber-400 group-hover:text-amber-300" : "text-white group-hover:text-red-500"
+                              )}>
+                                {player.name}
+                                {isOwner && <Crown className="w-3 h-3 text-amber-400 animate-pulse" />}
+                              </div>
                               <div className="flex gap-1 mt-1">
                                 {player.badges?.slice(0, 3).map(badgeId => {
                                   const badge = BADGES.find(b => b.id === badgeId);
@@ -1735,6 +1961,7 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                   {allPlayersInTier.map((player: any) => {
                     const tierId = player.rankings[activeCategory];
                     const isHT = tierId?.startsWith('HT');
+                    const isOwner = player.badges?.includes('owner');
                     
                     return (
                       <div 
@@ -1742,6 +1969,7 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                         onClick={() => onPlayerClick(player)}
                         className={cn(
                           "flex items-center justify-between p-3 rounded-2xl border transition-all duration-500 cursor-pointer group relative overflow-hidden",
+                          isOwner ? "bg-amber-400/10 border-amber-400/50 shadow-[0_0_20px_rgba(251,191,36,0.2)]" :
                           isHT 
                             ? "bg-amber-400/5 border-amber-400/10 hover:border-amber-400/40 hover:bg-amber-400/10" 
                             : "bg-blue-400/5 border-blue-400/10 hover:border-blue-400/40 hover:bg-blue-400/10"
@@ -1750,10 +1978,17 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                         {/* Background Glow */}
                         <div className={cn(
                           "absolute -right-4 -top-4 w-16 h-16 blur-2xl opacity-20 transition-opacity group-hover:opacity-40",
-                          isHT ? "bg-amber-400" : "bg-blue-400"
+                          isOwner || isHT ? "bg-amber-400" : "bg-blue-400"
                         )} />
 
                         <div className="flex items-center gap-3 relative z-10">
+                          {isOwner && (
+                            <motion.div 
+                              animate={{ opacity: [0.2, 0.5, 0.2] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                              className="absolute inset-x-0 -bottom-2 h-px bg-gradient-to-r from-transparent via-amber-400 to-transparent"
+                            />
+                          )}
                           <div 
                             className="flex items-end justify-center relative overflow-hidden rounded-xl bg-white/5"
                             style={{ width: `${skinConfig.category.width}px`, height: `${skinConfig.category.height}px` }}
@@ -1773,7 +2008,13 @@ const Home = ({ activeCategory, tiers, filteredPlayers, playersByTier, onPlayerC
                             />
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-sm font-black text-white tracking-tight group-hover:text-white transition-colors">{player.name}</span>
+                            <span className={cn(
+                              "text-sm font-black tracking-tight group-hover:text-white transition-colors flex items-center gap-1.5",
+                              isOwner ? "text-amber-400" : "text-white"
+                            )}>
+                              {player.name}
+                              {isOwner && <Crown className="w-3 h-3 text-amber-400 animate-pulse" />}
+                            </span>
                             <div className="flex items-center gap-2">
                               <span className={cn(
                                 "text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md border",
@@ -2070,6 +2311,11 @@ const Admin = ({ tiers, categories, players, seedData, updateRank, updatePose, t
             isCategory 
             onChange={(newVal: any) => setSkinConfig({ ...skinConfig, category: newVal })} 
           />
+          <SkinTuner 
+            title="Community MVP Settings" 
+            config={skinConfig.mvp ?? { zoom: 0.45, offsetY: -10, width: 200, height: 200, scale: 1.2, translateY: 30 }} 
+            onChange={(newVal: any) => setSkinConfig({ ...skinConfig, mvp: newVal })} 
+          />
           
           <div className="lg:col-span-2 bg-zinc-900/40 border border-white/5 rounded-[2rem] p-8">
             <div className="flex items-center justify-between mb-4">
@@ -2109,22 +2355,24 @@ const SkinTuner = ({ title, config, onChange, isCategory = false }: any) => {
       </h3>
       
       <div className="space-y-4">
-        <TunerField label="Zoom" value={config.zoom} min={0.1} max={10} step={0.1} onChange={(v) => updateField('zoom', v)} />
-        <TunerField label="Offset Y" value={config.offsetY} min={-100} max={100} step={1} onChange={(v) => updateField('offsetY', v)} />
-        <TunerField label="Canvas Width" value={config.width} min={10} max={200} step={1} onChange={(v) => updateField('width', v)} />
-        <TunerField label="Canvas Height" value={config.height} min={10} max={200} step={1} onChange={(v) => updateField('height', v)} />
+        <TunerField label="3D Zoom" value={config.zoom} min={0.1} max={10} step={0.1} onChange={(v) => updateField('zoom', v)} />
+        <TunerField label="3D Offset Y (Vertical)" value={config.offsetY} min={-400} max={400} step={1} onChange={(v) => updateField('offsetY', v)} />
+        <TunerField label="Canvas Width" value={config.width} min={10} max={500} step={1} onChange={(v) => updateField('width', v)} />
+        <TunerField label="Canvas Height" value={config.height} min={10} max={500} step={1} onChange={(v) => updateField('height', v)} />
         <TunerField label="CSS Scale" value={config.scale} min={0.1} max={5} step={0.1} onChange={(v) => updateField('scale', v)} />
-        <TunerField label="CSS Translate Y" value={config.translateY} min={-50} max={50} step={1} onChange={(v) => updateField('translateY', v)} />
+        <TunerField label="CSS Y Position" value={config.translateY} min={-200} max={200} step={1} onChange={(v) => updateField('translateY', v)} />
         {isCategory && (
-          <TunerField label="Rotation Y" value={config.rotationY} min={-Math.PI} max={Math.PI} step={0.1} onChange={(v) => updateField('rotationY', v)} />
+          <TunerField label="3D Rotation Y" value={config.rotationY} min={-Math.PI} max={Math.PI} step={0.1} onChange={(v) => updateField('rotationY', v)} />
         )}
       </div>
 
       <div className="pt-6 border-t border-white/5 flex items-center justify-center">
         <div 
-          className="bg-black/40 rounded-2xl flex items-end justify-center overflow-hidden border border-white/5"
+          className="bg-black/40 rounded-2xl flex items-center justify-center overflow-hidden border border-white/5 relative"
           style={{ width: `${config.width}px`, height: `${config.height}px` }}
         >
+          <div className="absolute inset-x-0 top-1/2 h-px bg-white/5 pointer-events-none" />
+          <div className="absolute inset-y-0 left-1/2 w-px bg-white/5 pointer-events-none" />
           <MinecraftSkin 
             name="Steve" 
             width={config.width} 
