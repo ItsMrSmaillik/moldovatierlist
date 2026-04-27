@@ -883,7 +883,7 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState<string>('global');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [compareList, setCompareList] = useState<Player[]>([]);
   const [voteStatus, setVoteStatus] = useState<string | null>(null);
@@ -1214,14 +1214,6 @@ export default function App() {
       handleFirestoreError(error, OperationType.WRITE, `players/${playerId}/pose`);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <div className="animate-pulse text-red-500 font-mono text-xl">LOADING MOLDOVA PVP...</div>
-      </div>
-    );
-  }
 
   return (
     <BrowserRouter>
